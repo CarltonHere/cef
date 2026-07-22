@@ -37,8 +37,8 @@ diff --git chrome/browser/extensions/api/tabs/tabs_api.cc chrome/browser/extensi
 index 6a7780c3cedfa6a97cdba5808b01e811e2fe66bb..c59cf94b59fee3a52ef0581569d251a777f233f2 100644
 --- chrome/browser/extensions/api/tabs/tabs_api.cc
 +++ chrome/browser/extensions/api/tabs/tabs_api.cc
-@@ -11,6 +11,7 @@
- #include "base/task/thread_pool.h"
+@@ -12,6 +12,7 @@
+ #include "base/types/expected.h"
  #include "base/types/expected_macros.h"
  #include "base/types/optional_util.h"
 +#include "cef/libcef/features/features.h"
