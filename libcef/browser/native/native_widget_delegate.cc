@@ -88,7 +88,15 @@ void CefNativeWidgetDelegate::Init(gfx::AcceleratedWidget parent_widget,
   // Set the WS_VISIBLE flag.
   params.type = views::Widget::InitParams::TYPE_CONTROL;
   // Don't set the WS_EX_COMPOSITED flag.
-  params.opacity = views::Widget::InitParams::WindowOpacity::kOpaque;
+  // When the browser background color is fully transparent (allowed for
+  // windowless, views-hosted or Alloy-style browsers, see
+  // CefContext::GetBackgroundColor), create the Widget as translucent so the
+  // compositor produces a premultiplied-alpha surface and the native parent
+  // window (e.g. a Mica/vibrancy backdrop) can show through. Otherwise keep
+  // the historical opaque behavior.
+  params.opacity = background_color_ == SK_ColorTRANSPARENT
+                       ? views::Widget::InitParams::WindowOpacity::kTranslucent
+                       : views::Widget::InitParams::WindowOpacity::kOpaque;
   // Tell Aura not to draw the window frame on resize.
   params.remove_standard_frame = true;
   // Cause WidgetDelegate::CanActivate to return true. See comments in
