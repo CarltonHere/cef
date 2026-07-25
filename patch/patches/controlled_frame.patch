@@ -1,0 +1,109 @@
+diff --git chrome/common/controlled_frame/controlled_frame.cc chrome/common/controlled_frame/controlled_frame.cc
+index b60aff5479745411e7feb17fcc7b81f377bec3f2..2b0941018ddaca1b6238a6d59b918c99c98c1b86 100644
+--- chrome/common/controlled_frame/controlled_frame.cc
++++ chrome/common/controlled_frame/controlled_frame.cc
+@@ -98,11 +98,13 @@ bool AvailabilityCheck(const std::string& api_full_name,
+ 
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+     BUILDFLAG(IS_CHROMEOS)
+-  // Verify that the current context is an Isolated Web App and the API name is
+-  // in our expected list.
+-  return (extension == nullptr) && url.SchemeIs(webapps::kIsolatedAppScheme) &&
++  // Verify that the current context is either an Isolated Web App or has an
++  // explicit embedder grant, and that the API name is in our expected list.
++  return (extension == nullptr) &&
+          context == extensions::mojom::ContextType::kWebPage &&
+-         context_data.HasControlledFrameCapability() &&
++         ((url.SchemeIs(webapps::kIsolatedAppScheme) &&
++           context_data.HasControlledFrameCapability()) ||
++          context_data.IsControlledFrameAllowedByEmbedder()) &&
+          std::ranges::contains(GetControlledFrameFeatureList(), api_full_name);
+ #else   // !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+         // BUILDFLAG(IS_CHROMEOS))
+diff --git extensions/browser/browser_frame_context_data.cc extensions/browser/browser_frame_context_data.cc
+index 3260341c6bf3bcefc3e4cd0a92fc3cf7cc83af34..a951071e5cdfb87489bc83d66d0d7771e7941a83 100644
+--- extensions/browser/browser_frame_context_data.cc
++++ extensions/browser/browser_frame_context_data.cc
+@@ -6,6 +6,7 @@
+ 
+ #include <memory>
+ 
++#include "content/public/browser/content_browser_client.h"
+ #include "content/public/browser/isolated_context_util.h"
+ #include "content/public/browser/isolated_web_apps_policy.h"
+ #include "content/public/browser/render_frame_host.h"
+@@ -29,6 +30,11 @@ bool BrowserFrameContextData::HasControlledFrameCapability() const {
+              frame_->GetBrowserContext(), GetUrl());
+ }
+ 
++bool BrowserFrameContextData::IsControlledFrameAllowedByEmbedder() const {
++  return frame_ &&
++         content::IsControlledFrameAllowedByBrowserEmbedder(frame_);
++}
++
+ std::unique_ptr<FrameContextData>
+ BrowserFrameContextData::GetLocalParentOrOpener() const {
+   CHECK(frame_);
+diff --git extensions/browser/browser_frame_context_data.h extensions/browser/browser_frame_context_data.h
+index 8906d98ca079a0bb23c4c4882b5ee33a0ee3f0b0..85fbfa68a768e7c7331487493f1e18f33e9dd9d2 100644
+--- extensions/browser/browser_frame_context_data.h
++++ extensions/browser/browser_frame_context_data.h
+@@ -27,6 +27,7 @@ class BrowserFrameContextData : public FrameContextData {
+ 
+   std::unique_ptr<FrameContextData> CloneFrameContextData() const override;
+   bool HasControlledFrameCapability() const override;
++  bool IsControlledFrameAllowedByEmbedder() const override;
+ 
+   std::unique_ptr<FrameContextData> GetLocalParentOrOpener() const override;
+ 
+diff --git extensions/common/context_data.h extensions/common/context_data.h
+index 654577978fcb6dc09a7f3c4feb8f4e24837e0cfd..280220428385eec6d095686177f13ae9e976dd2e 100644
+--- extensions/common/context_data.h
++++ extensions/common/context_data.h
+@@ -24,6 +24,10 @@ class ContextData {
+  public:
+   virtual ~ContextData() = default;
+   virtual bool HasControlledFrameCapability() const = 0;
++
++  // Returns true when the content embedder explicitly grants Controlled Frame
++  // capability outside an Isolated Web App. Embedders deny by default.
++  virtual bool IsControlledFrameAllowedByEmbedder() const { return false; }
+ };
+ 
+ }  // namespace extensions
+diff --git extensions/renderer/renderer_frame_context_data.cc extensions/renderer/renderer_frame_context_data.cc
+index 1531bb38c4a6fca53292c0830e101d401267c87e..6bb9f76190793fd245667a4afb4c6061a71a7e64 100644
+--- extensions/renderer/renderer_frame_context_data.cc
++++ extensions/renderer/renderer_frame_context_data.cc
+@@ -4,6 +4,7 @@
+ 
+ #include "extensions/renderer/renderer_frame_context_data.h"
+ 
++#include "content/public/renderer/content_renderer_client.h"
+ #include "extensions/renderer/renderer_context_data.h"
+ #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-forward.h"
+ #include "third_party/blink/public/platform/web_security_origin.h"
+@@ -35,6 +36,11 @@ bool RendererFrameContextData::HasControlledFrameCapability() const {
+          frame_->GetContentSettings()->allow_controlled_frame;
+ }
+ 
++bool RendererFrameContextData::IsControlledFrameAllowedByEmbedder() const {
++  return frame_ &&
++         content::IsControlledFrameAllowedByRendererEmbedder(frame_);
++}
++
+ std::unique_ptr<FrameContextData>
+ RendererFrameContextData::GetLocalParentOrOpener() const {
+   CHECK(frame_);
+diff --git extensions/renderer/renderer_frame_context_data.h extensions/renderer/renderer_frame_context_data.h
+index 195f7f295c52c3f148185c97524570c1bff42463..f9bb047b579311a053c63b69d50b35f7ed7b1fdc 100644
+--- extensions/renderer/renderer_frame_context_data.h
++++ extensions/renderer/renderer_frame_context_data.h
+@@ -33,6 +33,7 @@ class RendererFrameContextData : public FrameContextData {
+ 
+   std::unique_ptr<FrameContextData> CloneFrameContextData() const override;
+   bool HasControlledFrameCapability() const override;
++  bool IsControlledFrameAllowedByEmbedder() const override;
+ 
+   std::unique_ptr<FrameContextData> GetLocalParentOrOpener() const override;
+ 

@@ -16,6 +16,7 @@ struct BrowserConfig {
   bool print_preview_enabled;
   bool move_pip_enabled;
   bool allow_pip_without_user_activation;
+  bool controlled_frame_enabled;
 };
 
 }  // namespace cef

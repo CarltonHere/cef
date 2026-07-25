@@ -144,6 +144,8 @@ class ChromeContentBrowserClientCef : public ChromeContentBrowserClient {
       mojo::BinderMapWithContext<content::RenderFrameHost*>* map) override;
   std::unique_ptr<content::WebContentsViewDelegate> GetWebContentsViewDelegate(
       content::WebContents* web_contents) override;
+  bool IsControlledFrameAllowed(
+      content::RenderFrameHost* render_frame_host) override;
 
   CefRefPtr<CefRequestContextImpl> request_context() const;
 

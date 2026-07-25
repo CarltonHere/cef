@@ -576,7 +576,8 @@ bool CefBrowserPlatformDelegate::AllowPictureInPictureWithoutUserActivation()
 cef::BrowserConfig CefBrowserPlatformDelegate::GetBrowserConfig() const {
   return {IsWindowless(), IsPrintPreviewSupported(),
           IsMovePictureInPictureEnabled(),
-          AllowPictureInPictureWithoutUserActivation()};
+          AllowPictureInPictureWithoutUserActivation(),
+          /*controlled_frame_enabled=*/false};
 }
 
 // static

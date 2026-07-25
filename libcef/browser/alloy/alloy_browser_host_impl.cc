@@ -21,6 +21,7 @@
 #include "cef/libcef/browser/browser_info_manager.h"
 #include "cef/libcef/browser/browser_platform_delegate.h"
 #include "cef/libcef/browser/context.h"
+#include "cef/libcef/browser/controlled_frame_util.h"
 #include "cef/libcef/browser/hang_monitor.h"
 #include "cef/libcef/browser/media_access_query.h"
 #include "cef/libcef/browser/osr/osr_util.h"
@@ -116,9 +117,14 @@ CefRefPtr<AlloyBrowserHostImpl> AlloyBrowserHostImpl::Create(
   // Expect runtime style to match.
   CHECK(platform_delegate->IsAlloyStyle());
 
+  auto browser_config = platform_delegate->GetBrowserConfig();
+  browser_config.controlled_frame_enabled =
+      !browser_config.is_windowless &&
+      controlled_frame_util::IsRequested(create_params.extra_info);
+
   scoped_refptr<CefBrowserInfo> info =
       CefBrowserInfoManager::GetInstance()->CreateBrowserInfo(
-          /*is_devtools_popup=*/false, platform_delegate->GetBrowserConfig(),
+          /*is_devtools_popup=*/false, browser_config,
           create_params.extra_info);
 
   bool own_web_contents = false;
@@ -543,9 +549,11 @@ void AlloyBrowserHostImpl::CancelContextMenu() {
 bool AlloyBrowserHostImpl::MaybeAllowNavigation(
     content::RenderFrameHost* opener,
     const content::OpenURLParams& params) {
-  const bool is_guest_view =
-      IsBrowserPluginGuest(content::WebContents::FromRenderFrameHost(opener));
-  if (is_guest_view && !params.is_pdf &&
+  auto* web_contents = content::WebContents::FromRenderFrameHost(opener);
+  const bool is_guest_view = IsBrowserPluginGuest(web_contents);
+  const bool is_controlled_frame =
+      is_guest_view && controlled_frame_util::IsEnabledGuest(web_contents);
+  if (is_guest_view && !is_controlled_frame && !params.is_pdf &&
       !params.url.SchemeIs(extensions::kExtensionScheme) &&
       !params.url.SchemeIs(content::kChromeUIScheme)) {
     // The PDF viewer will load the PDF extension in the guest view, and print

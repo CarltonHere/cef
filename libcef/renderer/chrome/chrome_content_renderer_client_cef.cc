@@ -6,18 +6,33 @@
 #include "cef/libcef/renderer/chrome/chrome_content_renderer_client_cef.h"
 
 #include "cef/libcef/renderer/blink_glue.h"
+#include "cef/libcef/renderer/browser_impl.h"
 #include "cef/libcef/renderer/render_frame_observer.h"
 #include "cef/libcef/renderer/render_manager.h"
 #include "cef/libcef/renderer/thread_util.h"
 #include "chrome/renderer/printing/chrome_print_render_frame_helper_delegate.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
+#include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_view.h"
 
 ChromeContentRendererClientCef::ChromeContentRendererClientCef()
     : render_manager_(new CefRenderManager) {}
 
 ChromeContentRendererClientCef::~ChromeContentRendererClientCef() = default;
+
+bool ChromeContentRendererClientCef::IsControlledFrameAllowed(
+    const blink::WebLocalFrame* render_frame) {
+  if (!render_frame || !render_frame->IsOutermostMainFrame() ||
+      render_frame->Parent() || !render_frame->View() ||
+      render_frame->View()->MainFrame() != render_frame) {
+    return false;
+  }
+
+  auto browser = render_manager_->GetBrowserForView(render_frame->View());
+  return browser && !browser->is_popup() && !browser->config().is_windowless &&
+         browser->config().controlled_frame_enabled;
+}
 
 scoped_refptr<base::SingleThreadTaskRunner>
 ChromeContentRendererClientCef::GetCurrentTaskRunner() {

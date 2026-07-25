@@ -17,6 +17,7 @@
 #include "cef/libcef/browser/certificate_query.h"
 #include "cef/libcef/browser/chrome/chrome_browser_main_extra_parts_cef.h"
 #include "cef/libcef/browser/context.h"
+#include "cef/libcef/browser/controlled_frame_util.h"
 #include "cef/libcef/browser/net/throttle_handler.h"
 #include "cef/libcef/browser/net_service/cookie_manager_impl.h"
 #include "cef/libcef/browser/net_service/login_delegate.h"
@@ -181,6 +182,11 @@ HINSTANCE GetCodeModuleHandle() {
 
 ChromeContentBrowserClientCef::ChromeContentBrowserClientCef() = default;
 ChromeContentBrowserClientCef::~ChromeContentBrowserClientCef() = default;
+
+bool ChromeContentBrowserClientCef::IsControlledFrameAllowed(
+    content::RenderFrameHost* render_frame_host) {
+  return controlled_frame_util::IsEnabledOwnerFrame(render_frame_host);
+}
 
 void ChromeContentBrowserClientCef::CleanupOnUIThread() {
   browser_main_parts_ = nullptr;
