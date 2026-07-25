@@ -183,9 +183,27 @@ HINSTANCE GetCodeModuleHandle() {
 ChromeContentBrowserClientCef::ChromeContentBrowserClientCef() = default;
 ChromeContentBrowserClientCef::~ChromeContentBrowserClientCef() = default;
 
-bool ChromeContentBrowserClientCef::IsControlledFrameAllowed(
-    content::RenderFrameHost* render_frame_host) {
-  return controlled_frame_util::IsEnabledOwnerFrame(render_frame_host);
+bool ChromeContentBrowserClientCef::ShouldUrlUseApplicationIsolationLevel(
+    content::BrowserContext* browser_context,
+    const GURL& url) {
+  // A Controlled Frame owner gets the "isolated application" isolation level,
+  // which is what gates the Controlled Frame API, guest event dispatch and
+  // guest script injection. The COOP/COEP headers required alongside this are
+  // the embedder's responsibility.
+  if (controlled_frame_util::IsOwnerOrigin(url)) {
+    return true;
+  }
+  return ChromeContentBrowserClient::ShouldUrlUseApplicationIsolationLevel(
+      browser_context, url);
+}
+
+bool ChromeContentBrowserClientCef::AreIsolatedWebAppsEnabled(
+    content::BrowserContext* browser_context) {
+  if (controlled_frame_util::HasOwnerOrigin()) {
+    return true;
+  }
+  return ChromeContentBrowserClient::AreIsolatedWebAppsEnabled(
+      browser_context);
 }
 
 void ChromeContentBrowserClientCef::CleanupOnUIThread() {

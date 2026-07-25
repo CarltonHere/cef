@@ -47,32 +47,10 @@ index c4f4786c15ac7226a7f8516aafdfa88afc3ebe68..c1b876b910b9b5b147cbcd481061ce61
      return std::make_pair(
          /*is_cacheable=*/false,
 diff --git content/public/browser/content_browser_client.cc content/public/browser/content_browser_client.cc
-index f14f214d26bf8d41ff599a99f11b12641dd70d72..42d000b6d8bd8f1bcc956a90447217b497c663fd 100644
+index f14f214d26bf8d41ff599a99f11b12641dd70d72..aa6639e730c4347f0205119487cd7c3fe61befb2 100644
 --- content/public/browser/content_browser_client.cc
 +++ content/public/browser/content_browser_client.cc
-@@ -57,6 +57,7 @@
- #include "content/public/browser/web_contents_view_delegate.h"
- #include "content/public/browser/webid/identity_request_dialog_controller.h"
- #include "content/public/common/alternative_error_page_override_info.mojom.h"
-+#include "content/public/common/content_client.h"
- #include "content/public/common/content_features.h"
- #include "content/public/common/url_utils.h"
- #include "media/audio/audio_manager.h"
-@@ -110,6 +111,13 @@ using AttributionReportType =
- 
- namespace content {
- 
-+bool IsControlledFrameAllowedByBrowserEmbedder(
-+    RenderFrameHost* render_frame_host) {
-+  auto* content_client = GetContentClient();
-+  return content_client && content_client->browser() &&
-+         content_client->browser()->IsControlledFrameAllowed(render_frame_host);
-+}
-+
- std::unique_ptr<BrowserMainParts> ContentBrowserClient::CreateBrowserMainParts(
-     bool /* is_integration_test */) {
-   return nullptr;
-@@ -1215,7 +1223,7 @@ ContentBrowserClient::URLLoaderRequestHandler ContentBrowserClient::
+@@ -1215,7 +1215,7 @@ ContentBrowserClient::URLLoaderRequestHandler ContentBrowserClient::
  void ContentBrowserClient::OnNetworkServiceCreated(
      network::mojom::NetworkService* network_service) {}
  
@@ -81,7 +59,7 @@ index f14f214d26bf8d41ff599a99f11b12641dd70d72..42d000b6d8bd8f1bcc956a90447217b4
      BrowserContext* context,
      bool in_memory,
      const base::FilePath& relative_partition_path,
-@@ -1224,6 +1232,7 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
+@@ -1224,6 +1224,7 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
          cert_verifier_creation_params) {
    network_context_params->user_agent = GetUserAgent();
    network_context_params->accept_language = "en-us,en";
@@ -90,34 +68,10 @@ index f14f214d26bf8d41ff599a99f11b12641dd70d72..42d000b6d8bd8f1bcc956a90447217b4
  
  std::vector<base::FilePath>
 diff --git content/public/browser/content_browser_client.h content/public/browser/content_browser_client.h
-index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..e4fb012c1f55a87fed1a608de2def0a8e5588987 100644
+index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..5a502edc553730ed8283f82197dcbf195e780154 100644
 --- content/public/browser/content_browser_client.h
 +++ content/public/browser/content_browser_client.h
-@@ -300,6 +300,9 @@ class SmartCardDelegate;
- class TtsControllerDelegate;
- #endif
- 
-+CONTENT_EXPORT bool IsControlledFrameAllowedByBrowserEmbedder(
-+    RenderFrameHost* render_frame_host);
-+
- // Embedder API (or SPI) for participating in browser logic, to be implemented
- // by the client of the content browser. See ChromeContentBrowserClient for the
- // principal implementation. The methods are assumed to be called on the UI
-@@ -466,6 +469,13 @@ class CONTENT_EXPORT ContentBrowserClient {
-   virtual bool IsFullscreenAllowedForUnfocusedWebContents(
-       content::WebContents* unfocused_web_contents);
- 
-+  // Returns whether the embedder explicitly allows Controlled Frame in
-+  // `render_frame_host`. The default implementation denies the capability.
-+  virtual bool IsControlledFrameAllowed(
-+      content::RenderFrameHost* render_frame_host) {
-+    return false;
-+  }
-+
-   // Returns whether all instances of the specified site URL should be
-   // rendered by the same process, rather than using process-per-site-instance.
-   virtual bool ShouldUseProcessPerSite(BrowserContext* browser_context,
-@@ -1439,6 +1449,12 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -1439,6 +1439,12 @@ class CONTENT_EXPORT ContentBrowserClient {
        bool opener_suppressed,
        bool* no_javascript_access);
  
@@ -130,7 +84,7 @@ index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..e4fb012c1f55a87fed1a608de2def0a8
    // Allows the embedder to return a delegate for the SpeechRecognitionManager.
    // The delegate will be owned by the manager. It's valid to return nullptr.
    virtual SpeechRecognitionManagerDelegate*
-@@ -2285,7 +2301,7 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -2285,7 +2291,7 @@ class CONTENT_EXPORT ContentBrowserClient {
    //
    // If |relative_partition_path| is the empty string, it means this needs to
    // create the default NetworkContext for the BrowserContext.
@@ -139,7 +93,7 @@ index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..e4fb012c1f55a87fed1a608de2def0a8
        BrowserContext* context,
        bool in_memory,
        const base::FilePath& relative_partition_path,
-@@ -2538,6 +2554,22 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -2538,6 +2544,22 @@ class CONTENT_EXPORT ContentBrowserClient {
        const net::IsolationInfo& isolation_info,
        mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory);
  
@@ -162,7 +116,7 @@ index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..e4fb012c1f55a87fed1a608de2def0a8
    // Creates an OverlayWindow to be used for video or Picture-in-Picture.
    // This window will house the content shown when in Picture-in-Picture mode.
    // This will return a new OverlayWindow.
-@@ -2608,6 +2640,10 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -2608,6 +2630,10 @@ class CONTENT_EXPORT ContentBrowserClient {
    // Used as part of the user agent string.
    virtual std::string GetProduct();
  
@@ -173,47 +127,11 @@ index 6702d9295a99e14258f93d66dcdfadb65dfdf48b..e4fb012c1f55a87fed1a608de2def0a8
    // Returns the user agent. Content may cache this value.
    virtual std::string GetUserAgent();
  
-diff --git content/public/renderer/content_renderer_client.cc content/public/renderer/content_renderer_client.cc
-index af5fb975b5dc48e4a96bd23c1c0ece6eefd44aa4..3401fcf6497b43fce76e6798e072174d922d64fb 100644
---- content/public/renderer/content_renderer_client.cc
-+++ content/public/renderer/content_renderer_client.cc
-@@ -11,6 +11,7 @@
- #include "base/task/single_thread_task_runner.h"
- #include "build/build_config.h"
- #include "build/chromecast_buildflags.h"
-+#include "content/public/common/content_client.h"
- #include "content/public/common/content_switches.h"
- #include "media/base/demuxer.h"
- #include "media/base/renderer_factory.h"
-@@ -24,6 +25,13 @@
- 
- namespace content {
- 
-+bool IsControlledFrameAllowedByRendererEmbedder(
-+    const blink::WebLocalFrame* render_frame) {
-+  auto* content_client = GetContentClient();
-+  return content_client && content_client->renderer() &&
-+         content_client->renderer()->IsControlledFrameAllowed(render_frame);
-+}
-+
- void ContentRendererClient::SetUpWebAssemblyTrapHandler() {
-   constexpr bool use_v8_trap_handler =
- #if BUILDFLAG(IS_WIN)
 diff --git content/public/renderer/content_renderer_client.h content/public/renderer/content_renderer_client.h
-index 47dec1364f17eee55756f40f63ee2cdc3b33ed8b..60582eb9d6e2cd514b8f2ff95197593c5ec66cb4 100644
+index 47dec1364f17eee55756f40f63ee2cdc3b33ed8b..cd8f0b3d64494a2da43b2a287f7c1ca023415b02 100644
 --- content/public/renderer/content_renderer_client.h
 +++ content/public/renderer/content_renderer_client.h
-@@ -93,6 +93,9 @@ class Origin;
- namespace content {
- class RenderFrame;
- 
-+CONTENT_EXPORT bool IsControlledFrameAllowedByRendererEmbedder(
-+    const blink::WebLocalFrame* render_frame);
-+
- // Embedder API for participating in renderer logic.
- class CONTENT_EXPORT ContentRendererClient {
-  public:
-@@ -110,9 +113,19 @@ class CONTENT_EXPORT ContentRendererClient {
+@@ -110,6 +110,9 @@ class CONTENT_EXPORT ContentRendererClient {
    // a crash handler (such as crashpad) is already in use.
    virtual void SetUpWebAssemblyTrapHandler();
  
@@ -223,17 +141,7 @@ index 47dec1364f17eee55756f40f63ee2cdc3b33ed8b..60582eb9d6e2cd514b8f2ff95197593c
    // Notifies that a new RenderFrame has been created.
    virtual void RenderFrameCreated(RenderFrame* render_frame) {}
  
-+  // Returns whether the embedder explicitly allows Controlled Frame in
-+  // `render_frame`. The default implementation denies the capability.
-+  virtual bool IsControlledFrameAllowed(
-+      const blink::WebLocalFrame* render_frame) {
-+    return false;
-+  }
-+
-   // Notifies that a new WebView has been created.
-   // `outermost_origin` is only set if it is an extension scheme, otherwise
-   // it will be null. It is null to avoid leaking unnecessary information into
-@@ -352,6 +365,10 @@ class CONTENT_EXPORT ContentRendererClient {
+@@ -352,6 +355,10 @@ class CONTENT_EXPORT ContentRendererClient {
    // This method may invalidate the frame.
    virtual void RunScriptsAtDocumentIdle(RenderFrame* render_frame) {}
  

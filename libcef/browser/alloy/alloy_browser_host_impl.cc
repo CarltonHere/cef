@@ -117,14 +117,15 @@ CefRefPtr<AlloyBrowserHostImpl> AlloyBrowserHostImpl::Create(
   // Expect runtime style to match.
   CHECK(platform_delegate->IsAlloyStyle());
 
-  auto browser_config = platform_delegate->GetBrowserConfig();
-  browser_config.controlled_frame_enabled =
-      !browser_config.is_windowless &&
-      controlled_frame_util::IsRequested(create_params.extra_info);
+  // Windowless owners are excluded: OSR cannot composite a GuestView, so
+  // granting the isolation level would expose an API that cannot work.
+  if (!platform_delegate->IsWindowless()) {
+    controlled_frame_util::MaybeRegisterOwnerOrigin(create_params.extra_info);
+  }
 
   scoped_refptr<CefBrowserInfo> info =
       CefBrowserInfoManager::GetInstance()->CreateBrowserInfo(
-          /*is_devtools_popup=*/false, browser_config,
+          /*is_devtools_popup=*/false, platform_delegate->GetBrowserConfig(),
           create_params.extra_info);
 
   bool own_web_contents = false;

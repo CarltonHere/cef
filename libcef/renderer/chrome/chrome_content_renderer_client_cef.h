@@ -49,8 +49,6 @@ class ChromeContentRendererClientCef : public ChromeContentRendererClient {
   void DevToolsAgentAttached() override;
   void DevToolsAgentDetached() override;
   void ExposeInterfacesToBrowser(mojo::BinderMap* binders) override;
-  bool IsControlledFrameAllowed(
-      const blink::WebLocalFrame* render_frame) override;
 
  private:
   void OnBrowserCreated(blink::WebView* web_view,
