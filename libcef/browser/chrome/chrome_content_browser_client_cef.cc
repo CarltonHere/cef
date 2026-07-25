@@ -41,12 +41,14 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/common/content_switches.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_private_key.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
+#include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
 
 #if !BUILDFLAG(IS_MAC)
 #include "cef/libcef/browser/chrome/chrome_web_contents_view_delegate_cef.h"
@@ -190,6 +192,11 @@ bool ChromeContentBrowserClientCef::ShouldUrlUseApplicationIsolationLevel(
   // which is what gates the Controlled Frame API, guest event dispatch and
   // guest script injection. The COOP/COEP headers required alongside this are
   // the embedder's responsibility.
+  //
+  // Note that AreIsolatedWebAppsEnabled is deliberately not overridden: owner
+  // origins are not Isolated Web Apps, and Chrome's IWA machinery (navigation
+  // throttles, isolated-app:// loader factories, header rewriting) depends on
+  // a WebAppProvider that does not exist for CEF profiles.
   if (controlled_frame_util::IsOwnerOrigin(url)) {
     return true;
   }
@@ -197,13 +204,40 @@ bool ChromeContentBrowserClientCef::ShouldUrlUseApplicationIsolationLevel(
       browser_context, url);
 }
 
-bool ChromeContentBrowserClientCef::AreIsolatedWebAppsEnabled(
-    content::BrowserContext* browser_context) {
-  if (controlled_frame_util::HasOwnerOrigin()) {
-    return true;
+content::StoragePartitionConfig
+ChromeContentBrowserClientCef::GetStoragePartitionConfigForSite(
+    content::BrowserContext* browser_context,
+    const GURL& site) {
+  // Chrome maps sites with the application isolation level to a dedicated
+  // Isolated Web App StoragePartition and CHECKs that such sites use the
+  // isolated-app:// scheme. Controlled Frame owners are regular http(s)
+  // origins that belong in the default partition.
+  if (controlled_frame_util::IsOwnerOrigin(site)) {
+    return content::StoragePartitionConfig::CreateDefault(browser_context);
   }
-  return ChromeContentBrowserClient::AreIsolatedWebAppsEnabled(
-      browser_context);
+  return ChromeContentBrowserClient::GetStoragePartitionConfigForSite(
+      browser_context, site);
+}
+
+std::vector<blink::mojom::IsolatedAppPermissionPolicyEntryPtr>
+ChromeContentBrowserClientCef::GetBaselinePermissionsPolicyForIsolatedApp(
+    content::BrowserContext* browser_context,
+    const url::Origin& app_origin) {
+  // For documents committed at the application isolation level the baseline
+  // policy *becomes* the effective permissions policy (an Isolated Web App
+  // declares it in its manifest; response headers can only restrict it
+  // further). Without a controlled-frame entry the feature is disabled by
+  // permissions policy and guest attachment fails.
+  if (controlled_frame_util::IsOwnerOrigin(app_origin.GetURL())) {
+    std::vector<blink::mojom::IsolatedAppPermissionPolicyEntryPtr> policy;
+    policy.push_back(blink::mojom::IsolatedAppPermissionPolicyEntry::New(
+        "controlled-frame", std::vector<std::string>{"self"}));
+    policy.push_back(blink::mojom::IsolatedAppPermissionPolicyEntry::New(
+        "cross-origin-isolated", std::vector<std::string>{"self"}));
+    return policy;
+  }
+  return ChromeContentBrowserClient::
+      GetBaselinePermissionsPolicyForIsolatedApp(browser_context, app_origin);
 }
 
 void ChromeContentBrowserClientCef::CleanupOnUIThread() {

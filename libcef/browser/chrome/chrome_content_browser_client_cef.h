@@ -147,8 +147,13 @@ class ChromeContentBrowserClientCef : public ChromeContentBrowserClient {
   bool ShouldUrlUseApplicationIsolationLevel(
       content::BrowserContext* browser_context,
       const GURL& url) override;
-  bool AreIsolatedWebAppsEnabled(
-      content::BrowserContext* browser_context) override;
+  content::StoragePartitionConfig GetStoragePartitionConfigForSite(
+      content::BrowserContext* browser_context,
+      const GURL& site) override;
+  std::vector<blink::mojom::IsolatedAppPermissionPolicyEntryPtr>
+  GetBaselinePermissionsPolicyForIsolatedApp(
+      content::BrowserContext* browser_context,
+      const url::Origin& app_origin) override;
 
   CefRefPtr<CefRequestContextImpl> request_context() const;
 

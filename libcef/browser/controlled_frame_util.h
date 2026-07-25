@@ -47,9 +47,6 @@ void MaybeRegisterOwnerOrigin(CefRefPtr<CefDictionaryValue> extra_info);
 // back to a non-isolated level while the process is alive.
 bool IsOwnerOrigin(const GURL& url);
 
-// Returns true when at least one owner origin has been registered.
-bool HasOwnerOrigin();
-
 // Returns true when Controlled Frame is enabled for an existing browser.
 bool IsEnabled(const CefBrowserHostBase* browser);
 

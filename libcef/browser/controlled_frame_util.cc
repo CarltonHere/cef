@@ -40,11 +40,6 @@ class OwnerOriginRegistry {
     return origins_.find(origin) != origins_.end();
   }
 
-  bool IsEmpty() const {
-    base::AutoLock lock(lock_);
-    return origins_.empty();
-  }
-
  private:
   mutable base::Lock lock_;
   std::set<url::Origin> origins_ GUARDED_BY(lock_);
@@ -91,10 +86,6 @@ bool IsOwnerOrigin(const GURL& url) {
     return false;
   }
   return OwnerOriginRegistry::Get().Contains(origin);
-}
-
-bool HasOwnerOrigin() {
-  return !OwnerOriginRegistry::Get().IsEmpty();
 }
 
 bool IsEnabled(const CefBrowserHostBase* browser) {
