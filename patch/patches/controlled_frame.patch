@@ -2,7 +2,7 @@ diff --git chrome/common/controlled_frame/controlled_frame.cc chrome/common/cont
 index b60aff5479745411e7feb17fcc7b81f377bec3f2..2b0941018ddaca1b6238a6d59b918c99c98c1b86 100644
 --- chrome/common/controlled_frame/controlled_frame.cc
 +++ chrome/common/controlled_frame/controlled_frame.cc
-@@ -98,11 +98,13 @@ bool AvailabilityCheck(const std::string& api_full_name,
+@@ -98,9 +98,11 @@ bool AvailabilityCheck(const std::string& api_full_name,
  
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
      BUILDFLAG(IS_CHROMEOS)
