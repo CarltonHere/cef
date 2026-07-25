@@ -4,6 +4,7 @@
 
 #include "cef/libcef/browser/controlled_frame_util.h"
 
+#include <optional>
 #include <set>
 #include <string>
 
@@ -18,6 +19,7 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace controlled_frame_util {
 
@@ -45,8 +47,7 @@ class OwnerOriginRegistry {
   std::set<url::Origin> origins_ GUARDED_BY(lock_);
 };
 
-}  // namespace
-
+// Returns the owner origin requested for a browser, if any.
 std::optional<url::Origin> GetRequestedOwnerOrigin(
     CefRefPtr<CefDictionaryValue> extra_info) {
 #if BUILDFLAG(IS_WIN)
@@ -70,24 +71,7 @@ std::optional<url::Origin> GetRequestedOwnerOrigin(
 #endif
 }
 
-bool IsRequested(CefRefPtr<CefDictionaryValue> extra_info) {
-  return GetRequestedOwnerOrigin(extra_info).has_value();
-}
-
-void MaybeRegisterOwnerOrigin(CefRefPtr<CefDictionaryValue> extra_info) {
-  if (auto origin = GetRequestedOwnerOrigin(extra_info)) {
-    OwnerOriginRegistry::Get().Add(*origin);
-  }
-}
-
-bool IsOwnerOrigin(const GURL& url) {
-  auto origin = url::Origin::Create(url);
-  if (origin.opaque()) {
-    return false;
-  }
-  return OwnerOriginRegistry::Get().Contains(origin);
-}
-
+// Returns true when Controlled Frame is enabled for an existing browser.
 bool IsEnabled(const CefBrowserHostBase* browser) {
   if (!browser || !browser->IsAlloyStyle()) {
     return false;
@@ -95,9 +79,11 @@ bool IsEnabled(const CefBrowserHostBase* browser) {
 
   const auto& browser_info = browser->browser_info();
   return !browser_info->is_popup() && !browser_info->config().is_windowless &&
-         IsRequested(browser_info->extra_info());
+         GetRequestedOwnerOrigin(browser_info->extra_info()).has_value();
 }
 
+// Returns true only for the primary main frame of an enabled owner browser.
+// BrowserPlugin guests are always rejected to prevent nested guest creation.
 bool IsEnabledOwnerFrame(content::RenderFrameHost* frame) {
   if (!frame || !frame->IsInPrimaryMainFrame()) {
     return false;
@@ -111,6 +97,22 @@ bool IsEnabledOwnerFrame(content::RenderFrameHost* frame) {
 
   auto browser = CefBrowserHostBase::GetBrowserForContents(web_contents);
   return IsEnabled(browser.get());
+}
+
+}  // namespace
+
+void MaybeRegisterOwnerOrigin(CefRefPtr<CefDictionaryValue> extra_info) {
+  if (auto origin = GetRequestedOwnerOrigin(extra_info)) {
+    OwnerOriginRegistry::Get().Add(*origin);
+  }
+}
+
+bool IsOwnerOrigin(const GURL& url) {
+  auto origin = url::Origin::Create(url);
+  if (origin.opaque()) {
+    return false;
+  }
+  return OwnerOriginRegistry::Get().Contains(origin);
 }
 
 bool IsEnabledGuest(content::WebContents* web_contents) {
