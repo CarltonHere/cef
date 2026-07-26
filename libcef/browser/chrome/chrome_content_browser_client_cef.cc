@@ -228,12 +228,16 @@ ChromeContentBrowserClientCef::GetBaselinePermissionsPolicyForIsolatedApp(
   // declares it in its manifest; response headers can only restrict it
   // further). Without a controlled-frame entry the feature is disabled by
   // permissions policy and guest attachment fails.
+  //
+  // Allowlist entries are parsed by blink's PermissionsPolicyParser, which
+  // only recognizes the quoted 'self' keyword; a bare "self" fails origin
+  // parsing and yields an empty allowlist that disables the feature entirely.
   if (controlled_frame_util::IsOwnerOrigin(app_origin.GetURL())) {
     std::vector<blink::mojom::IsolatedAppPermissionPolicyEntryPtr> policy;
     policy.push_back(blink::mojom::IsolatedAppPermissionPolicyEntry::New(
-        "controlled-frame", std::vector<std::string>{"self"}));
+        "controlled-frame", std::vector<std::string>{"'self'"}));
     policy.push_back(blink::mojom::IsolatedAppPermissionPolicyEntry::New(
-        "cross-origin-isolated", std::vector<std::string>{"self"}));
+        "cross-origin-isolated", std::vector<std::string>{"'self'"}));
     return policy;
   }
   return ChromeContentBrowserClient::
