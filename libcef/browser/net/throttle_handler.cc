@@ -6,6 +6,7 @@
 
 #include "cef/libcef/browser/browser_host_base.h"
 #include "cef/libcef/browser/browser_info_manager.h"
+#include "cef/libcef/browser/controlled_frame_util.h"
 #include "cef/libcef/browser/frame_host_impl.h"
 #include "cef/libcef/common/frame_util.h"
 #include "cef/libcef/common/request_impl.h"
@@ -26,6 +27,18 @@ void NavigationOnUIThread(
         result_callback) {
   CEF_REQUIRE_UIT();
   CHECK(!should_run_async);
+
+  // Controlled Frame guest navigations are surfaced to the embedder through
+  // the Controlled Frame API (loadstart/loadabort/webRequest) instead of
+  // CefRequestHandler::OnBeforeBrowse. The CefBrowser/CefFrame for a guest
+  // navigation resolve to the owner browser's main frame, so reporting it
+  // would misattribute the navigation to the owner and let the client cancel
+  // it as if the owner were navigating away.
+  if (controlled_frame_util::IsEnabledGuest(
+          navigation_handle->GetWebContents())) {
+    std::move(result_callback).Run(false);
+    return;
+  }
 
   const bool is_main_frame = navigation_handle->IsInMainFrame();
   const auto global_id = frame_util::GetGlobalId(navigation_handle);

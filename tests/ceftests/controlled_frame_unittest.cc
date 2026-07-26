@@ -277,6 +277,20 @@ class ControlledFrameGuestTestHandler : public TestHandler {
     SetTestTimeout();
   }
 
+  // Model an embedder that pins the owner document (like a Tauri shell): any
+  // navigation reported for this browser that isn't the owner URL is
+  // cancelled. Guest navigations are surfaced through the Controlled Frame
+  // API instead of OnBeforeBrowse (see throttle_handler.cc); if one were
+  // reported here it would resolve to the owner main frame, get cancelled,
+  // and the guest would fail with loadabort.
+  bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
+                      CefRefPtr<CefFrame> frame,
+                      CefRefPtr<CefRequest> request,
+                      bool user_gesture,
+                      bool is_redirect) override {
+    return request->GetURL().ToString() != owner_url_;
+  }
+
   void OnLoadEnd(CefRefPtr<CefBrowser> browser,
                  CefRefPtr<CefFrame> frame,
                  int http_status_code) override {
